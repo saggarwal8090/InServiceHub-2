@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  # ── InServiceHub Server (Node.js + React SPA) ──
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inservicehub_prod
+    restart: always
+    ports:
+      - "${PORT:-5001}:5001"
+    environment:
+      PORT: 5001
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-change_me_to_random_secret}
+    volumes:
+      # Persist SQLite database across container restarts
+      - app_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  app_data:
