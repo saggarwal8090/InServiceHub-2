@@ -14,7 +14,7 @@ const fs = require('fs');
 const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'yours-here.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '444219018733-kt2fhjs5u5s4lls1bkkif1626osts6l5.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 const port = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';

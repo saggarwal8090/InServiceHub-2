@@ -8,7 +8,7 @@ import './index.css';
 // Lazy-load pages for code splitting (better production performance)
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'your-client-id-here';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '444219018733-kt2fhjs5u5s4lls1bkkif1626osts6l5.apps.googleusercontent.com';
 
 const Home = lazy(() => import('./pages/Home'));
 const Search = lazy(() => import('./pages/Search'));
