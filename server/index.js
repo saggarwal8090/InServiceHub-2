@@ -132,6 +132,17 @@ async function initDb() {
         const colNames = cols.map(c => c.name);
         if (!colNames.includes('service_type')) await db.run("ALTER TABLE bookings ADD COLUMN service_type TEXT");
         if (!colNames.includes('city')) await db.run("ALTER TABLE bookings ADD COLUMN city TEXT");
+    } else {
+        // Test query for Postgres
+        try {
+            await db.get('SELECT 1');
+            console.log('✅ Successfully connected to Supabase PostgreSQL!');
+        } catch (dbErr) {
+            console.error('❌ DATABASE CONNECTION ERROR:', dbErr.message);
+            if (dbErr.message.includes('authentication failed')) {
+                console.error('👉 Tip: Check if the password in your DATABASE_URL is correct.');
+            }
+        }
     }
 
     console.log('Database connected successfully.');
