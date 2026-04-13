@@ -4,8 +4,6 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -115,6 +113,8 @@ async function initDb() {
         };
     } else {
         console.log('Using SQLite database...');
+        const sqlite3 = require('sqlite3');
+        const { open } = require('sqlite');
         const sqliteDb = await open({
             filename: path.join(__dirname, '../inservicehub.db'),
             driver: sqlite3.Database
