@@ -10,6 +10,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
+const { Pool } = require('pg');
 
 const { OAuth2Client } = require('google-auth-library');
 
@@ -79,26 +80,61 @@ app.use(express.json({ limit: '10kb' }));
 // ========== DATABASE ==========
 
 let db;
+const usePostgres = !!process.env.DATABASE_URL;
 
 async function initDb() {
-    db = await open({
-        filename: path.join(__dirname, '../inservicehub.db'),
-        driver: sqlite3.Database
-    });
-    await db.run('PRAGMA foreign_keys = ON');
-    await db.run('PRAGMA journal_mode = WAL');
-
-    // Add service_type and city columns to bookings if they don't exist (for broadcast flow)
-    const cols = await db.all("PRAGMA table_info(bookings)");
-    const colNames = cols.map(c => c.name);
-    if (!colNames.includes('service_type')) {
-        await db.run("ALTER TABLE bookings ADD COLUMN service_type TEXT");
+    if (usePostgres) {
+        console.log('Using PostgreSQL database...');
+        const pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: isProduction ? { rejectUnauthorized: false } : false
+        });
+        
+        // Wrapper to match sqlite API
+        db = {
+            get: async (sql, params = []) => {
+                let i = 1;
+                const pgSql = sql.replace(/\?/g, () => `$${i++}`);
+                const res = await pool.query(pgSql, params);
+                return res.rows[0];
+            },
+            all: async (sql, params = []) => {
+                let i = 1;
+                const pgSql = sql.replace(/\?/g, () => `$${i++}`);
+                const res = await pool.query(pgSql, params);
+                return res.rows;
+            },
+            run: async (sql, params = []) => {
+                let i = 1;
+                const pgSql = sql.replace(/\?/g, () => `$${i++}`);
+                const res = await pool.query(pgSql, params);
+                // Postgres doesn't have lastID like sqlite, but we use RETURNING in our queries
+                return { lastID: res.rows[0]?.id, changes: res.rowCount };
+            },
+            close: () => pool.end()
+        };
+    } else {
+        console.log('Using SQLite database...');
+        const sqliteDb = await open({
+            filename: path.join(__dirname, '../inservicehub.db'),
+            driver: sqlite3.Database
+        });
+        await sqliteDb.run('PRAGMA foreign_keys = ON');
+        await sqliteDb.run('PRAGMA journal_mode = WAL');
+        
+        db = sqliteDb;
     }
-    if (!colNames.includes('city')) {
-        await db.run("ALTER TABLE bookings ADD COLUMN city TEXT");
+
+    // Add service_type and city columns to bookings if they don't exist
+    // This part is DB specific for checking schema
+    if (!usePostgres) {
+        const cols = await db.all("PRAGMA table_info(bookings)");
+        const colNames = cols.map(c => c.name);
+        if (!colNames.includes('service_type')) await db.run("ALTER TABLE bookings ADD COLUMN service_type TEXT");
+        if (!colNames.includes('city')) await db.run("ALTER TABLE bookings ADD COLUMN city TEXT");
     }
 
-    console.log('Connected to SQLite database.');
+    console.log('Database connected successfully.');
 }
 
 initDb().catch(err => {
@@ -210,7 +246,7 @@ app.post('/api/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 12);
         const newUser = await db.get(
             'INSERT INTO users (name, email, password, role, city, phone, is_online) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, name, email, role, city',
-            [name, email.toLowerCase().trim(), hashedPassword, role, city, phone, role === 'provider' ? 1 : 0]
+            [name, email.toLowerCase().trim(), hashedPassword, role, city || null, phone || null, role === 'provider' ? 1 : 0]
         );
 
         if (role === 'provider') {
