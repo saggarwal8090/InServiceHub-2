@@ -10,7 +10,9 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const { login, loginWithGoogle } = useAuth();
+    const [showRoleSelector, setShowRoleSelector] = useState(false);
+    const [pendingGoogleData, setPendingGoogleData] = useState(null);
+    const { login, loginWithGoogle, completeGoogleLogin } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
 
@@ -20,7 +22,6 @@ const Login = () => {
         setError('');
         const res = await login(email, password);
         if (res.success) {
-            // Redirect based on role
             if (res.role === 'provider') {
                 navigate('/provider-dashboard');
             } else {
@@ -36,7 +37,11 @@ const Login = () => {
         setLoading(true);
         setError('');
         const res = await loginWithGoogle(credentialResponse.credential);
-        if (res.success) {
+        
+        if (res.isNewUser) {
+            setPendingGoogleData(res.googleData);
+            setShowRoleSelector(true);
+        } else if (res.success) {
             if (res.role === 'provider') {
                 navigate('/provider-dashboard');
             } else {
@@ -47,6 +52,43 @@ const Login = () => {
         }
         setLoading(false);
     };
+
+    const handleRoleSelection = async (role) => {
+        setLoading(true);
+        const res = await completeGoogleLogin(pendingGoogleData.token, role);
+        if (res.success) {
+            if (res.role === 'provider') {
+                navigate('/provider-dashboard');
+            } else {
+                navigate('/');
+            }
+        } else {
+            setError(res.message);
+            setShowRoleSelector(false);
+        }
+        setLoading(false);
+    };
+
+    if (showRoleSelector) {
+        return (
+            <div className="auth-container">
+                <div className="auth-card">
+                    <div className="auth-header">
+                        <h2>One Last Step</h2>
+                        <p className="auth-subtitle">How would you like to use InServiceHub?</p>
+                    </div>
+                    <div className="role-selection-options" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.5rem' }}>
+                        <button className="auth-btn" onClick={() => handleRoleSelection('customer')}>
+                            I want to Hire Professionals
+                        </button>
+                        <button className="auth-btn provider-select-btn" onClick={() => handleRoleSelection('provider')} style={{ background: '#10b981' }}>
+                            I want to Provide Services
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="auth-container">
@@ -95,7 +137,7 @@ const Login = () => {
                     </div>
                     <button type="submit" className="auth-btn" disabled={loading} id="login-submit">
                         {loading ? (
-                            <><span className="btn-spinner"></span> Logging in...</>
+                            <><span className="btn-spinner"></span> Please wait...</>
                         ) : (
                             <><LogIn size={18} /> Login</>
                         )}

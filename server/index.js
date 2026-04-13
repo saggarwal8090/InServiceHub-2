@@ -124,7 +124,7 @@ const authenticateToken = (req, res, next) => {
 // ========== AUTH ROUTES ==========
 
 app.post('/api/auth/google', async (req, res) => {
-    const { token, role } = req.body;
+    const { token } = req.body;
     try {
         const ticket = await googleClient.verifyIdToken({
             idToken: token,
@@ -137,12 +137,11 @@ app.post('/api/auth/google', async (req, res) => {
         let user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
         
         if (!user) {
-            const userRole = role || 'customer'; 
-            const newId = await db.run(
-                'INSERT INTO users (name, email, password, role, is_online) VALUES (?, ?, ?, ?, ?)',
-                [name, email, 'oauth_placeholder', userRole, userRole === 'provider' ? 1 : 0]
-            );
-            user = await db.get('SELECT * FROM users WHERE id = ?', [newId.lastID]);
+            // User doesn't exist, tell frontend to ask for a role
+            return res.json({ 
+                isNewUser: true, 
+                googleData: { email, name, token } 
+            });
         }
 
         const appToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
@@ -151,6 +150,38 @@ app.post('/api/auth/google', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(401).json({ message: 'Invalid Google Token' });
+    }
+});
+
+app.post('/api/auth/google-complete', async (req, res) => {
+    const { token, role } = req.body;
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        const email = payload.email.toLowerCase().trim();
+        const name = payload.name;
+
+        if (!['customer', 'provider'].includes(role)) {
+            return res.status(400).json({ message: 'Invalid role selection' });
+        }
+
+        let user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+        if (!user) {
+            const newId = await db.run(
+                'INSERT INTO users (name, email, password, role, is_online) VALUES (?, ?, ?, ?, ?)',
+                [name, email, 'oauth_placeholder', role, role === 'provider' ? 1 : 0]
+            );
+            user = await db.get('SELECT * FROM users WHERE id = ?', [newId.lastID]);
+        }
+
+        const appToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token: appToken, user: { id: user.id, name: user.name, role: user.role, city: user.city } });
+    } catch (err) {
+        console.error(err);
+        res.status(401).json({ message: 'Error completing Google registration' });
     }
 });
 

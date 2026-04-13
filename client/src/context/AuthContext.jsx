@@ -62,9 +62,14 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const loginWithGoogle = async (googleToken, role = 'customer') => {
+    const loginWithGoogle = async (googleToken) => {
         try {
-            const res = await axios.post(`${API_URL}/auth/google`, { token: googleToken, role });
+            const res = await axios.post(`${API_URL}/auth/google`, { token: googleToken });
+            
+            if (res.data.isNewUser) {
+                return { isNewUser: true, googleData: res.data.googleData };
+            }
+
             const { token, user } = res.data;
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(user));
@@ -79,6 +84,23 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const completeGoogleLogin = async (googleToken, role) => {
+        try {
+            const res = await axios.post(`${API_URL}/auth/google-complete`, { token: googleToken, role });
+            const { token, user } = res.data;
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            setUser(user);
+            return { success: true, role: user.role };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Error completing registration.'
+            };
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -87,7 +109,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, register, loginWithGoogle, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, register, loginWithGoogle, completeGoogleLogin, logout, loading }}>
             {!loading && children}
         </AuthContext.Provider>
     );
