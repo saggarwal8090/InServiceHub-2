@@ -148,14 +148,17 @@ app.post('/api/auth/google', async (req, res) => {
         res.json({ token: appToken, user: { id: user.id, name: user.name, role: user.role, city: user.city } });
 
     } catch (err) {
-        console.error(err);
-        res.status(401).json({ message: 'Invalid Google Token' });
+        console.error("GOOGLE AUTH ERROR:", err);
+        res.status(500).json({ message: 'Google Verification Failed', error: err.message });
     }
 });
 
 app.post('/api/auth/google-complete', async (req, res) => {
     const { token, role } = req.body;
     try {
+        if (!token) {
+            return res.status(400).json({ message: 'Google Token is missing' });
+        }
         const ticket = await googleClient.verifyIdToken({
             idToken: token,
             audience: GOOGLE_CLIENT_ID,
@@ -180,8 +183,8 @@ app.post('/api/auth/google-complete', async (req, res) => {
         const appToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ token: appToken, user: { id: user.id, name: user.name, role: user.role, city: user.city } });
     } catch (err) {
-        console.error(err);
-        res.status(401).json({ message: 'Error completing Google registration' });
+        console.error("GOOGLE COMPLETE ERROR:", err);
+        res.status(500).json({ message: 'Error completing Google registration', error: err.message });
     }
 });
 

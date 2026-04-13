@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             return {
                 success: false,
-                message: error.response?.data?.message || 'Google Login failed.'
+                message: error.response?.data?.error || error.response?.data?.message || 'Google Login failed.'
             };
         }
     };
@@ -96,7 +96,7 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             return {
                 success: false,
-                message: error.response?.data?.message || 'Error completing registration.'
+                message: error.response?.data?.error || error.response?.data?.message || 'Error completing registration.'
             };
         }
     };
